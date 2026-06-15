@@ -1,6 +1,5 @@
 pipeline {
 
-```
 agent any
 
 environment {
@@ -120,6 +119,5 @@ post {
         echo 'FAILED - Check Console Output'
     }
 }
-```
 
 }
