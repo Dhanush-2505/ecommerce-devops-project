@@ -69,7 +69,7 @@ stages {
 
             withCredentials([
                 usernamePassword(
-                    credentialsId: 'dockerhub',
+                    credentialsId: 'dockerhup',
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )
