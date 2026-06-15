@@ -1,0 +1,112 @@
+pipeline {
+
+```
+agent any
+
+tools {
+    jdk 'jdk21'
+    sonarRunner 'sonar-scanner'
+}
+
+environment {
+
+    SCANNER_HOME = tool 'sonar-scanner'
+
+    BACKEND_IMAGE = "dhanushmyt/ecommerce-backend"
+    FRONTEND_IMAGE = "dhanushmyt/ecommerce-frontend"
+
+    IMAGE_TAG = "${BUILD_NUMBER}"
+}
+
+stages {
+
+    stage('Checkout') {
+        steps {
+            git branch: 'main',
+            credentialsId: 'git',
+            url: 'https://github.com/Dhanush-2505/ecommerce-devops-project.git'
+        }
+    }
+
+    stage('SonarQube Analysis') {
+        steps {
+            withSonarQubeEnv('sonarqube') {
+
+                sh '''
+                ${SCANNER_HOME}/bin/sonar-scanner \
+                -Dsonar.projectKey=ecommerce-devops-project \
+                -Dsonar.projectName=ecommerce-devops-project \
+                -Dsonar.sources=. \
+                -Dsonar.sourceEncoding=UTF-8
+                '''
+            }
+        }
+    }
+
+    stage('Docker Build Backend') {
+        steps {
+            sh '''
+            docker build -t $BACKEND_IMAGE:$IMAGE_TAG ./backend
+            docker tag $BACKEND_IMAGE:$IMAGE_TAG $BACKEND_IMAGE:latest
+            '''
+        }
+    }
+
+    stage('Docker Build Frontend') {
+        steps {
+            sh '''
+            docker build -t $FRONTEND_IMAGE:$IMAGE_TAG ./frontend
+            docker tag $FRONTEND_IMAGE:$IMAGE_TAG $FRONTEND_IMAGE:latest
+            '''
+        }
+    }
+
+    stage('DockerHub Login') {
+        steps {
+            withCredentials([usernamePassword(
+                credentialsId: 'dockerhub',
+                usernameVariable: 'DOCKER_USER',
+                passwordVariable: 'DOCKER_PASS'
+            )]) {
+
+                sh '''
+                echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                '''
+            }
+        }
+    }
+
+    stage('Push Backend Image') {
+        steps {
+            sh '''
+            docker push $BACKEND_IMAGE:$IMAGE_TAG
+            docker push $BACKEND_IMAGE:latest
+            '''
+        }
+    }
+
+    stage('Push Frontend Image') {
+        steps {
+            sh '''
+            docker push $FRONTEND_IMAGE:$IMAGE_TAG
+            docker push $FRONTEND_IMAGE:latest
+            '''
+        }
+    }
+
+}
+
+post {
+
+    success {
+        echo 'Pipeline Success'
+    }
+
+    failure {
+        echo 'Pipeline Failed'
+    }
+
+}
+```
+
+}
