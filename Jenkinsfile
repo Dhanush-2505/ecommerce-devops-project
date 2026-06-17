@@ -1,123 +1,138 @@
 pipeline {
 
-agent any
+    agent any
 
-environment {
-
-    BACKEND_IMAGE = "dhanushmyt/ecommerce-backend"
-    FRONTEND_IMAGE = "dhanushmyt/ecommerce-frontend"
-
-    IMAGE_TAG = "${BUILD_NUMBER}"
-}
-
-stages {
-
-    stage('Checkout Code') {
-
-        steps {
-
-            git branch: 'main',
-            credentialsId: 'git',
-            url: 'https://github.com/Dhanush-2505/ecommerce-devops-project.git'
-        }
+    tools {
+        sonarRunner 'sonar-scanner'
     }
 
-    stage('Verify Files') {
+    environment {
 
-        steps {
+        SCANNER_HOME = tool 'sonar-scanner'
 
-            sh '''
-            pwd
-            ls -la
-            ls -la backend
-            ls -la frontend
-            '''
-        }
+        BACKEND_IMAGE = "dhanushmyt/ecommerce-backend"
+        FRONTEND_IMAGE = "dhanushmyt/ecommerce-frontend"
+
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
-    stage('Build Backend Image') {
+    stages {
 
-        steps {
+        stage('Checkout Code') {
+            steps {
 
-            sh '''
-            docker build -t $BACKEND_IMAGE:$IMAGE_TAG ./backend
+                git branch: 'main',
+                credentialsId: 'git',
+                url: 'https://github.com/Dhanush-2505/ecommerce-devops-project.git'
 
-            docker tag \
-            $BACKEND_IMAGE:$IMAGE_TAG \
-            $BACKEND_IMAGE:latest
-            '''
+            }
         }
-    }
 
-    stage('Build Frontend Image') {
-
-        steps {
-
-            sh '''
-            docker build -t $FRONTEND_IMAGE:$IMAGE_TAG ./frontend
-
-            docker tag \
-            $FRONTEND_IMAGE:$IMAGE_TAG \
-            $FRONTEND_IMAGE:latest
-            '''
-        }
-    }
-
-    stage('DockerHub Login') {
-
-        steps {
-
-            withCredentials([
-                usernamePassword(
-                    credentialsId: 'dockerhup',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )
-            ]) {
-
+        stage('Verify Files') {
+            steps {
                 sh '''
-                echo "$DOCKER_PASS" | docker login \
-                -u "$DOCKER_USER" \
-                --password-stdin
+                pwd
+                ls -la
+                ls -la backend
+                ls -la frontend
                 '''
             }
         }
+
+        stage('SonarQube Analysis') {
+            steps {
+
+                withSonarQubeEnv('sonarqube') {
+
+                    sh """
+                    ${SCANNER_HOME}/bin/sonar-scanner \
+                    -Dsonar.projectKey=ecommerce-devops-project \
+                    -Dsonar.projectName=ecommerce-devops-project \
+                    -Dsonar.sources=. \
+                    -Dsonar.sourceEncoding=UTF-8
+                    """
+                }
+            }
+        }
+
+        stage('Build Backend Image') {
+            steps {
+
+                sh '''
+                docker build -t $BACKEND_IMAGE:$IMAGE_TAG ./backend
+
+                docker tag \
+                $BACKEND_IMAGE:$IMAGE_TAG \
+                $BACKEND_IMAGE:latest
+                '''
+            }
+        }
+
+        stage('Build Frontend Image') {
+            steps {
+
+                sh '''
+                docker build -t $FRONTEND_IMAGE:$IMAGE_TAG ./frontend
+
+                docker tag \
+                $FRONTEND_IMAGE:$IMAGE_TAG \
+                $FRONTEND_IMAGE:latest
+                '''
+            }
+        }
+
+        stage('DockerHub Login') {
+            steps {
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login \
+                    -u "$DOCKER_USER" \
+                    --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Push Backend Image') {
+            steps {
+
+                sh '''
+                docker push $BACKEND_IMAGE:$IMAGE_TAG
+                docker push $BACKEND_IMAGE:latest
+                '''
+            }
+        }
+
+        stage('Push Frontend Image') {
+            steps {
+
+                sh '''
+                docker push $FRONTEND_IMAGE:$IMAGE_TAG
+                docker push $FRONTEND_IMAGE:latest
+                '''
+            }
+        }
+
     }
 
-    stage('Push Backend Image') {
+    post {
 
-        steps {
+        success {
 
-            sh '''
-            docker push $BACKEND_IMAGE:$IMAGE_TAG
-            docker push $BACKEND_IMAGE:latest
-            '''
+            echo 'SUCCESS - Images pushed to DockerHub'
+        }
+
+        failure {
+
+            echo 'FAILED - Check console logs'
         }
     }
-
-    stage('Push Frontend Image') {
-
-        steps {
-
-            sh '''
-            docker push $FRONTEND_IMAGE:$IMAGE_TAG
-            docker push $FRONTEND_IMAGE:latest
-            '''
-        }
-    }
-}
-
-post {
-
-    success {
-
-        echo 'SUCCESS - Images pushed to DockerHub'
-    }
-
-    failure {
-
-        echo 'FAILED - Check Console Output'
-    }
-}
-
 }
