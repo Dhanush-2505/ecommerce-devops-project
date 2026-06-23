@@ -52,6 +52,24 @@ pipeline {
             }
         }
 
+        stage('Build Backend Image') {
+            steps {
+                sh '''
+                docker build -t $BACKEND_IMAGE:$IMAGE_TAG ./backend
+                docker tag $BACKEND_IMAGE:$IMAGE_TAG $BACKEND_IMAGE:latest
+                '''
+            }
+        }
+
+        stage('Build Frontend Image') {
+            steps {
+                sh '''
+                docker build -t $FRONTEND_IMAGE:$IMAGE_TAG ./frontend
+                docker tag $FRONTEND_IMAGE:$IMAGE_TAG $FRONTEND_IMAGE:latest
+                '''
+            }
+        }
+
         stage('Trivy Scan Backend') {
             steps {
                 sh '''
@@ -70,23 +88,6 @@ pipeline {
             }
         }
 
-        stage('Build Backend Image') {
-            steps {
-                sh '''
-                docker build -t $BACKEND_IMAGE:$IMAGE_TAG ./backend
-                docker tag $BACKEND_IMAGE:$IMAGE_TAG $BACKEND_IMAGE:latest
-                '''
-            }
-        }
-
-        stage('Build Frontend Image') {
-            steps {
-                sh '''
-                docker build -t $FRONTEND_IMAGE:$IMAGE_TAG ./frontend
-                docker tag $FRONTEND_IMAGE:$IMAGE_TAG $FRONTEND_IMAGE:latest
-                '''
-            }
-        }
 
         stage('DockerHub Login') {
             steps {
