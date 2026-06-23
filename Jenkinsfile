@@ -52,6 +52,24 @@ pipeline {
             }
         }
 
+        stage('Trivy Scan Backend') {
+            steps {
+                sh '''
+                trivy image --severity HIGH,CRITICAL \
+                $BACKEND_IMAGE:$IMAGE_TAG
+                '''
+            }
+        }
+
+        stage('Trivy Scan Frontend') {
+            steps {
+                sh '''
+                trivy image --severity HIGH,CRITICAL \
+                $FRONTEND_IMAGE:$IMAGE_TAG
+                '''
+            }
+        }
+
         stage('Build Backend Image') {
             steps {
                 sh '''
